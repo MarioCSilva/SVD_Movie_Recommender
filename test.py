@@ -113,7 +113,7 @@ Construct Matrixes
 rating_matrix_train = train.pivot(index="user_id", columns="movie_id", values="rating")
 rating_matrix_test = test.pivot(index="user_id", columns="movie_id", values="rating")
 matrix_train = pd.DataFrame(rating_matrix_train.values)
-matrix_test = pd.DataFrame(rating_matrix_train.values)
+matrix_test = pd.DataFrame(rating_matrix_test.values)
 
 print(matrix_train.shape)
 print(matrix_test.shape)
@@ -161,9 +161,9 @@ print(f"VT: {pd.DataFrame(V.transpose()).iloc[:5, :5]}")
 explicar o predict
 """
 
+print(rating_matrix_test)
 
-
-
+exit(1)
 """
 Truncated SVD
 dimensionality reduction
@@ -175,13 +175,25 @@ dimensionality reduction
 """
 Funk SVD
 """
+df = fetch_ml_ratings(variant='100k')
 
+train = df.sample(frac=0.8, random_state=7)
+val = df.drop(train.index.tolist()).sample(frac=0.5, random_state=8)
+test = df.drop(train.index.tolist()).drop(val.index.tolist())
+
+svd = SVD(lr=0.001, reg=0.005, n_epochs=100, n_factors=15, early_stopping=True,
+        shuffle=False, min_rating=1, max_rating=5)
+
+svd.fit(X=train, X_val=val)
 
 
 """
-Predict for a rating of a user for non rated movies example
+(Not Accuracies) MAE RMSE w/e
 """
 
+pred = svd.predict(test)
+mae = mean_absolute_error(test['rating'], pred)
+print(f'Test MAE: {mae:.2f}')
 
 
 """
@@ -190,9 +202,8 @@ Hyperparameters Tunning
 
 
 """
-(Not Accuracies) MAE RMSE w/e
+Predict for a rating of a user for non rated movies example
 """
-
 
 
 
