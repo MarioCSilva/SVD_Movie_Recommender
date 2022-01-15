@@ -133,7 +133,7 @@ U, S, VT = np.linalg.svd(ratings_matrix, full_matrices=False)
 
 print(f"U: {pd.DataFrame(U).iloc[:5, :5]}")
 print(f"S: {pd.DataFrame(S).iloc[:5, :]}")
-print(f"VT: {pd.DataFrame(V.transpose()).iloc[:5, :5]}")
+print(f"VT: {pd.DataFrame(VT).iloc[:5, :5]}")
 print(U.shape)
 print(S.shape)
 print(VT.shape)
@@ -143,22 +143,22 @@ print(VT.shape)
 # SVD Matrix Reconstruction
 
 """
-user_id, movie_id, rating, _ = ratings.iloc[0]
+reconstructed_matrix = np.dot(U * S, VT)
 
-print(user_id, movie_id, rating)
+print(reconstructed_matrix[1][:4])
+print(ratings_matrix.iloc[1, :4].to_numpy())
 
-x = np.dot(np.dot(U, np.diag(S)), VT)
-print(x[0])
-print(ratings_matrix.iloc[0, :])
+mae = np.average(np.absolute(ratings_matrix - reconstructed_matrix))
+print("Reconstruction Error: ", mae)
 
-
-exit(1)
 """
 Truncated SVD
 dimensionality reduction
 """
 
-
+reconstructed_matrix = np.dot(U[:,:10] * S[:10], VT[:10,:])
+mae = np.average(np.absolute(ratings_matrix - reconstructed_matrix))
+print("Reconstruction Error: ", mae)
 
 
 """
@@ -177,7 +177,7 @@ svd.fit(X=train, X_val=val)
 
 
 """
-(Not Accuracies) MAE RMSE w/e
+MAE RMSE w/e
 """
 
 pred = svd.predict(test)
@@ -190,6 +190,7 @@ Hyperparameters Tunning
 """
 
 
+
 """
 Predict for a rating of a user for non rated movies example
 """
@@ -200,7 +201,44 @@ Predict for a rating of a user for non rated movies example
 Similarity Analysis 
 """
 
+def top_cosine_similarity(data, item_id, top_n=10):
+    index = item_id - 1 #Ids starts from 1 in the dataset
+    row = data[index, :]
+    magnitude = np.sqrt(np.einsum('ij, ij -> i', data, data))
+    similarity = np.dot(row, data.T) / (magnitude[index] * magnitude)
+    sort_indexes = np.argsort(-similarity)
+    return sort_indexes[:top_n]
 
+
+def print_similar_movies(movie_data, movie_id, top_indexes):
+    print('Recommendations for {0}: \n'.format(
+        movie_data[movie_data.movie_id == movie_id].title.values[0]))
+    for id in top_indexes + 1:
+        print(movie_data[movie_data.movie_id == id].title.values[0])
+
+
+def print_similar_users(user_data, user_id, top_indexes):
+    print('Recommendations for {0}: \n'.format(
+        user_data[user_data.user_id == user_id]))
+    for id in top_indexes + 1:
+        print(user_data[user_data.user_id == id])
+
+
+movie_id = 1
+user_id = 1
+top_n = 5
+indexes = top_cosine_similarity(VT, movie_id, top_n)
+print_similar_movies(movies, movie_id, indexes)
+
+indexes = top_cosine_similarity(U, user_id, top_n)
+print_similar_users(users, user_id, indexes)
+
+
+indexes = top_cosine_similarity(svd.qi_ + svd.bi_, movie_id, top_n)
+print_similar_movies(movies, movie_id, indexes)
+
+indexes = top_cosine_similarity(svd.pu_ + svd.bu_, user_id, top_n)
+print_similar_users(users, user_id, indexes)
 
 
 
