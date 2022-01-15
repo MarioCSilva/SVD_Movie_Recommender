@@ -97,28 +97,13 @@ plt.show()
 
 
 """
-Split Data
-"""
-train = ratings.sample(frac=0.8)
-test = ratings.drop(train.index.tolist())
-
-print(train.shape)
-print(test.shape)
-
-
-"""
-Construct Matrixes
+Construct Matrix
 """
 
-rating_matrix_train = train.pivot(index="user_id", columns="movie_id", values="rating")
-rating_matrix_test = test.pivot(index="user_id", columns="movie_id", values="rating")
-matrix_train = pd.DataFrame(rating_matrix_train.values)
-matrix_test = pd.DataFrame(rating_matrix_test.values)
+ratings_matrix = ratings.pivot(index="user_id", columns="movie_id", values="rating")
 
-print(matrix_train.shape)
-print(matrix_test.shape)
-
-print(matrix_train.iloc[:5, :5])
+print(ratings_matrix.shape)
+print(ratings_matrix.iloc[:5, :5])
 
 
 """
@@ -126,17 +111,14 @@ As it can be seen above, there are NaN entries on the matrix, which need to be r
 There are several approaches to this problem, such as replacing with zero value, or average of all ratings, or even the average rating of a user.
 """
 
-matrix_train = matrix_train.fillna(0)
-matrix_test = matrix_test.fillna(0)
-
-
-print(matrix_train.iloc[:5, :5])
+ratings_matrix = ratings_matrix.fillna(0)
+print(ratings_matrix.iloc[:5, :5])
 
 """
 The sparsity mentioned above, can be verified by the percentage of zeros present in the matrix.
 """
 
-sparsity = 1 - np.count_nonzero(matrix_train) / (num_users * num_movies)
+sparsity = 1 - np.count_nonzero(ratings_matrix) / (num_users * num_movies)
 print(f"Sparsity: {sparsity:.3f}")
 
 
@@ -147,21 +129,28 @@ Opa ya é o svd e tal
 
 """
 
-
-U, S, V = np.linalg.svd(matrix_train)
+U, S, VT = np.linalg.svd(ratings_matrix, full_matrices=False)
 
 print(f"U: {pd.DataFrame(U).iloc[:5, :5]}")
 print(f"S: {pd.DataFrame(S).iloc[:5, :]}")
 print(f"VT: {pd.DataFrame(V.transpose()).iloc[:5, :5]}")
-
+print(U.shape)
+print(S.shape)
+print(VT.shape)
 
 
 """
-# SVD Predictions
-explicar o predict
-"""
+# SVD Matrix Reconstruction
 
-print(rating_matrix_test)
+"""
+user_id, movie_id, rating, _ = ratings.iloc[0]
+
+print(user_id, movie_id, rating)
+
+x = np.dot(np.dot(U, np.diag(S)), VT)
+print(x[0])
+print(ratings_matrix.iloc[0, :])
+
 
 exit(1)
 """
@@ -182,7 +171,7 @@ val = df.drop(train.index.tolist()).sample(frac=0.5, random_state=8)
 test = df.drop(train.index.tolist()).drop(val.index.tolist())
 
 svd = SVD(lr=0.001, reg=0.005, n_epochs=100, n_factors=15, early_stopping=True,
-        shuffle=False, min_rating=1, max_rating=5)
+	shuffle=False, min_rating=1, max_rating=5)
 
 svd.fit(X=train, X_val=val)
 
@@ -217,43 +206,43 @@ Similarity Analysis
 
 def cross_validation():
 
-    df = fetch_ml_ratings(variant='100k')
+	df = fetch_ml_ratings(variant='100k')
 
-    train = df.sample(frac=0.8, random_state=7)
-    val = df.drop(train.index.tolist()).sample(frac=0.5, random_state=8)
-    test = df.drop(train.index.tolist()).drop(val.index.tolist())
+	train = df.sample(frac=0.8, random_state=7)
+	val = df.drop(train.index.tolist()).sample(frac=0.5, random_state=8)
+	test = df.drop(train.index.tolist()).drop(val.index.tolist())
 
-    svd = SVD(lr=0.001, reg=0.005, n_epochs=500, n_factors=15, early_stopping=False,
-            shuffle=False, min_rating=1, max_rating=5)
+	svd = SVD(lr=0.001, reg=0.005, n_epochs=500, n_factors=15, early_stopping=False,
+		shuffle=False, min_rating=1, max_rating=5)
 
-    svd.fit(X=train, X_val=val)
+	svd.fit(X=train, X_val=val)
 
-    pred = svd.predict(test)
-    mae = mean_absolute_error(test['rating'], pred)
+	pred = svd.predict(test)
+	mae = mean_absolute_error(test['rating'], pred)
 
-    print(f'Test MAE: {mae:.2f}')
+	print(f'Test MAE: {mae:.2f}')
 
 
 def k_fold_cross_validation(k=5):
-    df = fetch_ml_ratings(variant='100k')
+	df = fetch_ml_ratings(variant='100k')
 
-    train = df.sample(frac=0.8, random_state=7)
-    test = df.drop(train.index.tolist())
-    
-    fold_size = int(train.shape[0] / k)
-    
-    print(fold_size)
+	train = df.sample(frac=0.8, random_state=7)
+	test = df.drop(train.index.tolist())
 
-    svd = SVD(lr=0.001, reg=0.005, n_epochs=100, n_factors=15, early_stopping=True,
-            shuffle=False, min_rating=1, max_rating=5)
-    
-    for i in range(k):
-        val = train[fold_size*i: fold_size*(i+1)+1]
-        train_ = train.drop(val.index.tolist())
-        svd.fit(X=train_, X_val=val)
+	fold_size = int(train.shape[0] / k)
 
-    pred = svd.predict(test)
-    mae = mean_absolute_error(test['rating'], pred)
+	print(fold_size)
 
-    print(f'Test MAE: {mae:.2f}')
+	svd = SVD(lr=0.001, reg=0.005, n_epochs=100, n_factors=15, early_stopping=True,
+		shuffle=False, min_rating=1, max_rating=5)
+
+	for i in range(k):
+		val = train[fold_size*i: fold_size*(i+1)+1]
+		train_ = train.drop(val.index.tolist())
+		svd.fit(X=train_, X_val=val)
+
+		pred = svd.predict(test)
+		mae = mean_absolute_error(test['rating'], pred)
+
+	print(f'Test MAE: {mae:.2f}')
 
