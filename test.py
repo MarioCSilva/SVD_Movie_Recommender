@@ -189,16 +189,85 @@ print(f'Test MAE: {mae:.2f}')
 Hyperparameters Tunning
 """
 
+# lrs = [0.0001, 0.001, 0.01, 0.1]
+# factors = [5, 10, 15, 20, 25, 30]
 
+# mae_outputs = {}
+# for lr in lrs:
+# 	for n in factors:
+# 		svd = SVD(lr=lr, n_epochs=100, n_factors=n, early_stopping=False,
+# 			shuffle=False, min_rating=1, max_rating=5)
+
+# 		svd.fit(X=train, X_val=val)
+
+# 		pred = svd.predict(test)
+# 		mae = mean_absolute_error(test['rating'], pred)
+# 		mae_outputs.setdefault(lr, [])
+# 		mae_outputs[lr].append(mae)
+# 		print(f'Latent Factors: {n}\nLearning Rate: {lr}\nTest MAE: {mae:.2f}')
+
+# for lr in mae_outputs:
+# 	plt.plot(factors, mae_outputs[lr], label=f"lr={lr}")
+
+# plt.ylabel("MAE")
+# plt.xlabel("Number of Latent Factors")
+# plt.xticks(factors)
+# plt.title("Funk SVD MAE with different Latent Factors and Learning Rates")
+# plt.legend()
+# plt.show()
+
+
+# opt_lr, lr_n_factors = min(mae_outputs.items(), key=lambda x: min(x[1]))
+# opt_n_factor = factors[lr_n_factors.index(min(lr_n_factors))]
+
+# print(f"Optimal Learning Rate: {opt_lr}")
+# print(f"Optimal Number of Latent Factors: {opt_n_factor}")
 
 """
 Predict for a rating of a user for non rated movies example
 """
+# Train SVD with optimal hyperparameters calculated previously
+svd = SVD(lr=0.01, n_epochs=100, n_factors=10, early_stopping=False,
+			shuffle=False, min_rating=1, max_rating=5)
 
+svd.fit(X=train, X_val=val)
+
+user_id = 1
+# hand selected a movie that was rated by the user
+movie_id_rated = 1
+# hand selected a movie that wasn't rated by the user
+movie_id_unrated = 1682
+
+# initialize prediction to global mean rating
+pred = svd.global_mean_
+
+# getting index assigned to the user_id by the Funk SVD
+u_ix = svd.user_mapping_[user_id]
+
+# adding the bias associated with this user id
+pred += svd.bu_[u_ix]
+
+# getting index assigned to the movie_id by the Funk SVD
+i_ix_unrated = svd.item_mapping_[movie_id_unrated]
+i_ix_rated = svd.item_mapping_[movie_id_rated]
+
+# adding the bias associated with this user id
+pred_unrated = pred + svd.bi_[i_ix_unrated]
+pred_rated = pred + svd.bi_[i_ix_rated]
+
+# dot product between the associated user's and movie's latent factors
+pred_unrated += np.dot(svd.pu_[u_ix], svd.qi_[i_ix_unrated])
+pred_rated += np.dot(svd.pu_[u_ix], svd.qi_[i_ix_rated])
+
+print(f"For user id: {user_id}")
+print(f"Rating prediction for a rated movie {movie_id_rated}: {pred_rated:.1f}, Actual Rating: {ratings_matrix.iloc[user_id - 1, movie_id_rated - 1]}")
+print(f"Rating prediction for an unrated movie {movie_id_unrated}: {pred_unrated:.1f}")
 
 
 """
-Similarity Analysis 
+Similarity Analysis
+
+Calculate cosine similarity, sort by most similar and return the top N.
 """
 
 def top_cosine_similarity(data, item_id, top_n=10):
@@ -209,14 +278,14 @@ def top_cosine_similarity(data, item_id, top_n=10):
     sort_indexes = np.argsort(-similarity)
     return sort_indexes[:top_n]
 
-
+# Function to print top N similar movies
 def print_similar_movies(movie_data, movie_id, top_indexes):
     print('Recommendations for {0}: \n'.format(
         movie_data[movie_data.movie_id == movie_id].title.values[0]))
     for id in top_indexes + 1:
         print(movie_data[movie_data.movie_id == id].title.values[0])
 
-
+# Function to print top N similar users
 def print_similar_users(user_data, user_id, top_indexes):
     print('Recommendations for {0}: \n'.format(
         user_data[user_data.user_id == user_id]))
@@ -227,60 +296,37 @@ def print_similar_users(user_data, user_id, top_indexes):
 movie_id = 1
 user_id = 1
 top_n = 5
-indexes = top_cosine_similarity(VT, movie_id, top_n)
-print_similar_movies(movies, movie_id, indexes)
+top_indexes_movies = top_cosine_similarity(VT, movie_id, top_n)
+print_similar_movies(movies, movie_id, top_indexes_movies)
 
-indexes = top_cosine_similarity(U, user_id, top_n)
-print_similar_users(users, user_id, indexes)
+for i in top_indexes_movies:
+	plt.plot(U[i,0], U[i,1], 'o')
+	plt.annotate(movies[movies.movie_id == i+1].title.values[0], (U[i,0], U[i,1]))
 
+plt.ylabel("Latent Factor 1")
+plt.xlabel("Latent Factor 2")
+plt.title("Normal SVD")
+plt.legend()
+plt.show()
 
-indexes = top_cosine_similarity(svd.qi_ + svd.bi_, movie_id, top_n)
-print_similar_movies(movies, movie_id, indexes)
-
-indexes = top_cosine_similarity(svd.pu_ + svd.bu_, user_id, top_n)
-print_similar_users(users, user_id, indexes)
-
-
-
-def cross_validation():
-
-	df = fetch_ml_ratings(variant='100k')
-
-	train = df.sample(frac=0.8, random_state=7)
-	val = df.drop(train.index.tolist()).sample(frac=0.5, random_state=8)
-	test = df.drop(train.index.tolist()).drop(val.index.tolist())
-
-	svd = SVD(lr=0.001, reg=0.005, n_epochs=500, n_factors=15, early_stopping=False,
-		shuffle=False, min_rating=1, max_rating=5)
-
-	svd.fit(X=train, X_val=val)
-
-	pred = svd.predict(test)
-	mae = mean_absolute_error(test['rating'], pred)
-
-	print(f'Test MAE: {mae:.2f}')
+top_indexes_users = top_cosine_similarity(U, user_id, top_n)
+print_similar_users(users, user_id, top_indexes_users)
 
 
-def k_fold_cross_validation(k=5):
-	df = fetch_ml_ratings(variant='100k')
 
-	train = df.sample(frac=0.8, random_state=7)
-	test = df.drop(train.index.tolist())
 
-	fold_size = int(train.shape[0] / k)
+top_indexes_movies = top_cosine_similarity(svd.qi_, movie_id, top_n)
+print_similar_movies(movies, movie_id, top_indexes_movies)
 
-	print(fold_size)
+for i in top_indexes_movies:
+	plt.plot(svd.qi_[i,0], svd.qi_[i,1], 'o')
+	plt.annotate(movies[movies.movie_id == i+1].title.values[0], (svd.qi_[i,0], svd.qi_[i,1]))
 
-	svd = SVD(lr=0.001, reg=0.005, n_epochs=100, n_factors=15, early_stopping=True,
-		shuffle=False, min_rating=1, max_rating=5)
+plt.ylabel("Latent Factor 1")
+plt.xlabel("Latent Factor 2")
+plt.title("Funk SVD")
+plt.legend()
+plt.show()
 
-	for i in range(k):
-		val = train[fold_size*i: fold_size*(i+1)+1]
-		train_ = train.drop(val.index.tolist())
-		svd.fit(X=train_, X_val=val)
-
-		pred = svd.predict(test)
-		mae = mean_absolute_error(test['rating'], pred)
-
-	print(f'Test MAE: {mae:.2f}')
-
+top_indexes_users = top_cosine_similarity(svd.pu_, user_id, top_n)
+print_similar_users(users, user_id, top_indexes_users)
