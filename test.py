@@ -260,7 +260,8 @@ pred_unrated += np.dot(svd.pu_[u_ix], svd.qi_[i_ix_unrated])
 pred_rated += np.dot(svd.pu_[u_ix], svd.qi_[i_ix_rated])
 
 print(f"For user id: {user_id}")
-print(f"Rating prediction for a rated movie {movie_id_rated}: {pred_rated:.1f}, Actual Rating: {ratings_matrix.iloc[user_id - 1, movie_id_rated - 1]}")
+print(f"Rating prediction for a rated movie {movie_id_rated}: {pred_rated:.1f},\
+	Actual Rating: {ratings_matrix.iloc[user_id - 1, movie_id_rated - 1]}")
 print(f"Rating prediction for an unrated movie {movie_id_unrated}: {pred_unrated:.1f}")
 
 
