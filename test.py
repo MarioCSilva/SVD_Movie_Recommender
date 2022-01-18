@@ -241,17 +241,17 @@ movie_id_unrated = 1682
 # initialize prediction to global mean rating
 pred = svd.global_mean_
 
-# getting index assigned to the user_id by the Funk SVD
+# getting index assigned to the user id by the Funk SVD
 u_ix = svd.user_mapping_[user_id]
 
 # adding the bias associated with this user id
 pred += svd.bu_[u_ix]
 
-# getting index assigned to the movie_id by the Funk SVD
+# getting index assigned to the movies' id by the Funk SVD
 i_ix_unrated = svd.item_mapping_[movie_id_unrated]
 i_ix_rated = svd.item_mapping_[movie_id_rated]
 
-# adding the bias associated with this user id
+# adding the bias associated with these movies' id
 pred_unrated = pred + svd.bi_[i_ix_unrated]
 pred_rated = pred + svd.bi_[i_ix_rated]
 
